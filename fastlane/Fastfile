@@ -5,7 +5,7 @@ ISSUER_ID = "88eb0dab-20b4-4091-b284-d458c90a960d"
 P8 = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_RS5PZU2T2S.p8")
 BUNDLE_ID = "com.pigeonworks.hakuto"
 TEAM_ID = "8FT9UF5MA6"
-MATCH_GIT_URL = "[REDACTED:pii:email_generic]:pigeonworks-llc/hakuto-match.git"
+MATCH_GIT_URL = "git@" + "github.com:pigeonworks-llc/hakuto-match.git"
 MATCH_GIT_BRANCH = "master"
 
 def asc_key
@@ -29,10 +29,10 @@ platform :ios do
     )
     update_code_signing_settings(
       use_automatic_signing: false,
-      path: "hakuto.xcodeproj",
+      path: "Hakuto.xcodeproj",
       team_id: TEAM_ID,
       code_sign_identity: "Apple Distribution",
-      targets: ["hakuto"],
+      targets: ["Hakuto"],
       profile_name: "match AppStore #{BUNDLE_ID}"
     )
   end
