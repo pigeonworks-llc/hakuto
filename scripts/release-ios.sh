@@ -148,6 +148,12 @@ else
 	echo "⚠ watch project not found — building without watch app"
 fi
 
+# --- pre-bundle JS (avoid Metro transformFile crash during archive) ---
+step "pre-bundle JS"
+mkdir -p ios/build/Hakuto.app
+bash scripts/pre-bundle-js.sh
+echo 'export SKIP_BUNDLING=1' >ios/.xcode.env.updates
+
 # --- archive (iOS) ---
 step "xcodebuild archive"
 rm -rf "$ARCHIVE_PATH"
@@ -164,6 +170,20 @@ if [[ -d "$WATCH_PRODUCTS/HakutoWatch.app" && -d "$ARCHIVE_PATH" ]]; then
 	mkdir -p "$WATCH_DEST"
 	cp -R "$WATCH_PRODUCTS/HakutoWatch.app" "$WATCH_DEST/"
 	ok "injected HakutoWatch.app into archive Watch/ directory"
+fi
+
+# --- inject pre-bundled JS into archive (SKIP_BUNDLING対応) ---
+PRE_BUNDLE="$REPO_ROOT/ios/build/Hakuto.app/main.jsbundle"
+if [[ -f "$PRE_BUNDLE" && -d "$ARCHIVE_PATH" ]]; then
+	step "inject JS bundle into archive"
+	APP_DIR="$ARCHIVE_PATH/Products/Applications/${SCHEME}.app"
+	cp "$PRE_BUNDLE" "$APP_DIR/main.jsbundle"
+	ok "injected main.jsbundle into archive (${APP_DIR}/main.jsbundle)"
+	# Also inject assets if they exist
+	if [[ -d "$REPO_ROOT/ios/build/Hakuto.app/assets" ]]; then
+		cp -R "$REPO_ROOT/ios/build/Hakuto.app/assets" "$APP_DIR/"
+		ok "injected assets into archive"
+	fi
 fi
 
 # --- export ---
