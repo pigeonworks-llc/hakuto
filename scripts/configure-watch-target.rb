@@ -67,6 +67,7 @@ watch_target.build_configurations.each do |config|
   config.build_settings['INFOPLIST_FILE'] = 'HakutoWatch/Info.plist'
   config.build_settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = 'AppIcon'
   config.build_settings['GENERATE_INFOPLIST_FILE'] = 'YES'
+  config.build_settings['SKIP_INSTALL'] = 'YES'
 end
 
 # --- Create watch group and add Swift files ---

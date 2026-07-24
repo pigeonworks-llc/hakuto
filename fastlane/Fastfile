@@ -33,8 +33,16 @@ platform :ios do
       path: "Hakuto.xcodeproj",
       team_id: TEAM_ID,
       code_sign_identity: "Apple Distribution",
-      targets: ["Hakuto", "HakutoWatch"],
+      targets: ["Hakuto"],
       profile_name: "match AppStore #{BUNDLE_ID}"
+    )
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Hakuto.xcodeproj",
+      team_id: TEAM_ID,
+      code_sign_identity: "Apple Distribution",
+      targets: ["HakutoWatch"],
+      profile_name: "match AppStore #{WATCH_BUNDLE_ID}"
     )
   end
 
