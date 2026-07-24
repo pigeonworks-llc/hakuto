@@ -5,6 +5,7 @@ import type {
   Round,
   RoundWithScores,
 } from "../../types";
+import type { SyncRoundPayload } from "../../types/watch";
 
 let counter = 0;
 function genId(): string {
@@ -84,4 +85,39 @@ export async function deleteRound(
   id: string,
 ): Promise<void> {
   await db.runAsync("DELETE FROM rounds WHERE id = ?", [id]);
+}
+
+/**
+ * Watch から同期されたラウンドを保存する。
+ * Watch 側で採番した id をそのまま主キーに使うため、同じラウンドを再同期しても
+ * 重複挿入されない (idempotent)。total_strokes は payload を信用せず scores から
+ * 再計算する (HIO −3打ルールの単一情報源を Phone 側に保つ)。
+ * @returns 保存した (または既存の) roundId と、新規挿入したかどうか。
+ */
+export async function insertSyncedRound(
+  db: SQLiteDatabase,
+  payload: SyncRoundPayload,
+): Promise<{ id: string; inserted: boolean }> {
+  const existing = await db.getFirstAsync<{ id: string }>(
+    "SELECT id FROM rounds WHERE id = ?",
+    [payload.id],
+  );
+  if (existing) return { id: existing.id, inserted: false };
+
+  const { totalStrokes } = calculateTotalStrokes(payload.scores);
+
+  await db.runAsync(
+    "INSERT INTO rounds (id, place, played_at, total_strokes, notes, source) VALUES (?, ?, ?, ?, ?, ?)",
+    [payload.id, payload.place ?? null, payload.playedAt, totalStrokes, null, "watch"],
+  );
+
+  for (let i = 0; i < payload.scores.length; i++) {
+    const scoreId = genId();
+    await db.runAsync(
+      "INSERT INTO hole_scores (id, round_id, hole_number, strokes) VALUES (?, ?, ?, ?)",
+      [scoreId, payload.id, i + 1, payload.scores[i]],
+    );
+  }
+
+  return { id: payload.id, inserted: true };
 }

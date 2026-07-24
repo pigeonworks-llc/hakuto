@@ -351,18 +351,17 @@ struct PlayingView: View {
             .foregroundColor(.orange)
         }
 
-        // Score buttons 1-8
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-          ForEach([1, 2, 3, 4, 5, 6, 7, 8], id: \.self) { strokes in
-            Button(action: { session.setScore(strokes) }) {
-              Text("\(strokes)")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(Color.green.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
+        // Score buttons — 打数の大半は 1-4 に収まるため主役として大きく表示、
+        // 5-8 はまれなので下段に控えめに置く
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+          ForEach(1...4, id: \.self) { strokes in
+            scoreButton(strokes, primary: true)
+          }
+        }
+
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 4), spacing: 4) {
+          ForEach(5...8, id: \.self) { strokes in
+            scoreButton(strokes, primary: false)
           }
         }
 
@@ -396,6 +395,20 @@ struct PlayingView: View {
       }
       .padding(8)
     }
+  }
+
+  @ViewBuilder
+  private func scoreButton(_ strokes: Int, primary: Bool) -> some View {
+    Button(action: { session.setScore(strokes) }) {
+      Text("\(strokes)")
+        .font(primary ? .title2 : .body)
+        .fontWeight(primary ? .bold : .regular)
+        .frame(maxWidth: .infinity, minHeight: primary ? 50 : 34)
+        .foregroundColor(primary ? .primary : .secondary)
+        .background(primary ? Color.green.opacity(0.25) : Color.gray.opacity(0.15))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+    .buttonStyle(.plain)
   }
 
   private func finish() {

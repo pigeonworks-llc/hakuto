@@ -83,8 +83,12 @@ npx expo export:embed \
 	CODE_SIGNING_ALLOWED=NO build) >/dev/null
 APP="$(find "$SIM_DERIVED/Build/Products" -maxdepth 2 -name "${SCHEME}.app" -type d | head -1)"
 [[ -n "$APP" ]] || fail "sim .app not produced"
-# Inject pre-bundled JS into the built .app
-if [[ -f "$SIM_BUNDLE_OUTPUT" ]]; then
+# Inject pre-bundled JS into the built .app。
+# SIM_BUNDLE_OUTPUT は .app 内パスに事前 bundle しているため、found APP と
+# 同一ファイルになることがある。macOS の cp は src==dst で exit 1 になり
+# set -e で smoke 全体が中断する (起動クラッシュと誤検出される) ため、
+# 別ファイルのときだけ copy する。
+if [[ -f "$SIM_BUNDLE_OUTPUT" ]] && ! [[ "$SIM_BUNDLE_OUTPUT" -ef "$APP/main.jsbundle" ]]; then
 	cp "$SIM_BUNDLE_OUTPUT" "$APP/main.jsbundle"
 fi
 ok "app: $APP"
@@ -95,10 +99,25 @@ SINCE="$(date +%Y-%m-%d\ %H:%M:%S)"
 xcrun simctl install "$UDID" "$APP"
 xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null || fail "launch invocation failed"
 
-# --- 生存確認 (5s 後にプロセスが居るか + crash report が出てないか) ---
+# --- 生存確認 (プロセスが起動し、かつ生存し続けるか + crash report 検査) ---
+# Release + SKIP_BUNDLING の cold launch は 2.6M jsbundle 読込で数秒かかる。
+# 固定 sleep 5 では起動途中を取りこぼし false crash になる (2026-07-24 実測:
+# app は launchctl list に居るのに 5s 判定が空振り)。最大 15s poll して起動を
+# 待ち、さらに 3s 後も生存を確認して「起動即クラッシュ」でないことを確定する。
 step "liveness check"
-sleep 5
-if xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+alive=0
+for _ in $(seq 1 15); do
+	if xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+		alive=1
+		break
+	fi
+	sleep 1
+done
+if [[ "$alive" -eq 1 ]]; then
+	sleep 3
+	xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID" || alive=0
+fi
+if [[ "$alive" -eq 1 ]]; then
 	ok "process alive — no launch crash"
 else
 	# crash report を拾って原因を出す
@@ -107,7 +126,7 @@ else
 		echo "--- crash report head ---" >&2
 		grep -m1 -iE "Exception Type|Termination|ReferenceError|Unhandled" "$CRASH" >&2 || true
 	fi
-	fail "起動クラッシュ検出 — プロセスが 5s 後に不在 (upload 中止)"
+	fail "起動クラッシュ検出 — プロセスが起動後に不在 (upload 中止)"
 fi
 
 echo
