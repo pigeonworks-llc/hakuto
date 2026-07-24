@@ -65,24 +65,64 @@ export default function StatsScreen() {
     );
   }
 
+  const maxCourseRounds = Math.max(...courseStats.map((c) => c.rounds), 1);
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>統計</Text>
 
+      {/* Summary cards */}
       <View style={styles.summaryGrid}>
-        <StatCard label="総ラウンド" value={`${summary.totalRounds}`} />
-        <StatCard label="平均打数" value={`${summary.averageStrokes}`} />
-        <StatCard label="ベスト" value={`${summary.bestScore}`} />
-        <StatCard label="直近5平均" value={`${summary.recentAvgStrokes}`} />
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{summary.totalRounds}</Text>
+          <Text style={styles.statLabel}>総ラウンド</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{summary.averageStrokes}</Text>
+          <Text style={styles.statLabel}>平均打数</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{summary.bestScore}</Text>
+          <Text style={styles.statLabel}>ベスト</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{summary.recentAvgStrokes}</Text>
+          <Text style={styles.statLabel}>直近5平均</Text>
+        </View>
       </View>
 
+      {/* Trend indicator */}
+      {summary.averageStrokes > 0 && summary.recentAvgStrokes > 0 && (
+        <View style={styles.trendCard}>
+          <Text style={styles.trendLabel}>全体平均 {summary.averageStrokes} → 直近 {summary.recentAvgStrokes}</Text>
+          <Text style={[styles.trendValue, summary.recentAvgStrokes <= summary.averageStrokes ? styles.trendUp : styles.trendDown]}>
+            {summary.recentAvgStrokes <= summary.averageStrokes ? "📈 改善傾向" : "📉 要練習"}
+          </Text>
+        </View>
+      )}
+
+      {/* Course breakdown with bar chart */}
       {courseStats.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>コース別</Text>
           {courseStats.map((cs) => (
-            <View key={cs.courseId} style={styles.courseRow}>
-              <Text style={styles.courseName}>{cs.courseName}</Text>
-              <Text style={styles.courseValue}>{cs.averageStrokes} 平均 / {cs.bestScore} ベスト</Text>
+            <View key={cs.courseId} style={styles.courseCard}>
+              <View style={styles.courseHeader}>
+                <Text style={styles.courseName}>{cs.courseName}</Text>
+                <Text style={styles.courseRounds}>{cs.rounds} ラウンド</Text>
+              </View>
+              <View style={styles.courseBarOuter}>
+                <View
+                  style={[
+                    styles.courseBar,
+                    { width: `${(cs.rounds / maxCourseRounds) * 100}%` },
+                  ]}
+                />
+              </View>
+              <View style={styles.courseStats}>
+                <Text style={styles.courseStat}>平均 {cs.averageStrokes}</Text>
+                <Text style={styles.courseStat}>ベスト {cs.bestScore}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -91,24 +131,15 @@ export default function StatsScreen() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: 20, gap: 20 },
+  content: { padding: 20, gap: 16, paddingBottom: 40 },
   title: { fontSize: 22, fontWeight: "800", color: COLORS.text },
   empty: { fontSize: 14, color: COLORS.textMuted, textAlign: "center", paddingVertical: 40 },
-  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   statCard: {
     flex: 1,
-    minWidth: "45%",
+    minWidth: "46%",
     padding: 16,
     backgroundColor: COLORS.surface,
     borderRadius: 12,
@@ -119,17 +150,51 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 28, fontWeight: "800", color: COLORS.primary },
   statLabel: { fontSize: 12, color: COLORS.textSecondary },
-  section: { gap: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
-  courseRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 14,
+  trendCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    padding: 16,
+    alignItems: "center",
+    gap: 4,
+  },
+  trendLabel: { fontSize: 13, color: COLORS.textSecondary },
+  trendValue: { fontSize: 16, fontWeight: "700" },
+  trendUp: { color: COLORS.success },
+  trendDown: { color: COLORS.danger },
+  section: { gap: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text, marginTop: 4 },
+  courseCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+    gap: 8,
+  },
+  courseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   courseName: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  courseValue: { fontSize: 14, color: COLORS.textSecondary },
+  courseRounds: { fontSize: 12, color: COLORS.textMuted },
+  courseBarOuter: {
+    height: 8,
+    backgroundColor: COLORS.border,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  courseBar: {
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+    opacity: 0.7,
+  },
+  courseStats: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  courseStat: { fontSize: 13, color: COLORS.textSecondary },
 });
