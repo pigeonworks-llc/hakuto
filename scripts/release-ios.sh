@@ -26,6 +26,8 @@ ARCHIVE_PATH="$REPO_ROOT/ios/build/Hakuto.xcarchive"
 EXPORT_PATH="$REPO_ROOT/ios/build/export"
 EXPORT_PLIST="$REPO_ROOT/ios/build/export-options.plist"
 IPA_PATH="$EXPORT_PATH/${SCHEME}.ipa"
+WATCH_PRODUCTS="$REPO_ROOT/ios/build/watch-products"
+WATCH_PROJECT_PATH="$REPO_ROOT/watch-app/HakutoWatch.xcodeproj"
 
 SKIP_PREBUILD=0
 NO_UPLOAD=0
@@ -101,8 +103,8 @@ cp fastlane/Fastfile ios/fastlane/Fastfile
 step "configure watch target"
 bash scripts/configure-watch-target.sh
 
-# --- signing ---
-step "fastlane signing (match)"
+# --- signing (iOS) ---
+step "fastlane signing (iOS)"
 SOPS_APPLE="$HOME/.config/secrets/eatreel-apple.sops.env"
 if [[ -z "${MATCH_PASSWORD:-}" && -f "$SOPS_APPLE" ]]; then
 	(cd ios && sops exec-env "$SOPS_APPLE" \
@@ -113,7 +115,37 @@ else
 	fail "MATCH_PASSWORD 未設定 かつ $SOPS_APPLE 不在"
 fi
 
-# --- archive ---
+# --- signing (Watch) ---
+step "fastlane signing (Watch)"
+if [[ -f "$WATCH_PROJECT_PATH" ]]; then
+	if [[ -z "${MATCH_PASSWORD:-}" && -f "$SOPS_APPLE" ]]; then
+		(cd ios && sops exec-env "$SOPS_APPLE" \
+			'FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 fastlane signing_watch')
+	elif [[ -n "${MATCH_PASSWORD:-}" ]]; then
+		(cd ios && FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 fastlane signing_watch)
+	fi
+fi
+
+# --- build watch app (standalone, inject into archive later) ---
+WATCH_PRODUCTS="$REPO_ROOT/ios/build/watch-products"
+WATCH_PROJECT_PATH="$REPO_ROOT/watch-app/HakutoWatch.xcodeproj"
+if [[ -f "$WATCH_PROJECT_PATH" ]]; then
+	step "xcodebuild build (Watch app)"
+	rm -rf "$WATCH_PRODUCTS"
+	mkdir -p "$WATCH_PRODUCTS"
+	(cd ios && xcodebuild \
+		-project "$WATCH_PROJECT_PATH" \
+		-scheme "HakutoWatch" \
+		-configuration Release \
+		-destination "generic/platform=watchos" \
+		CONFIGURATION_BUILD_DIR="$WATCH_PRODUCTS" \
+		build)
+	ok "watch app built: $WATCH_PRODUCTS/HakutoWatch.app"
+else
+	echo "⚠ watch project not found — building without watch app"
+fi
+
+# --- archive (iOS) ---
 step "xcodebuild archive"
 rm -rf "$ARCHIVE_PATH"
 (cd ios && xcodebuild \
@@ -121,6 +153,15 @@ rm -rf "$ARCHIVE_PATH"
 	-configuration Release -destination "generic/platform=iOS" \
 	-archivePath "$ARCHIVE_PATH" archive)
 ok "archive: $ARCHIVE_PATH"
+
+# --- inject watch app into archive ---
+if [[ -d "$WATCH_PRODUCTS/HakutoWatch.app" && -d "$ARCHIVE_PATH" ]]; then
+	step "inject watch app into archive"
+	WATCH_DEST="$ARCHIVE_PATH/Products/Applications/${SCHEME}.app/Watch"
+	mkdir -p "$WATCH_DEST"
+	cp -R "$WATCH_PRODUCTS/HakutoWatch.app" "$WATCH_DEST/"
+	ok "injected HakutoWatch.app into archive Watch/ directory"
+fi
 
 # --- export ---
 step "xcodebuild -exportArchive"
