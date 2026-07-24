@@ -1,7 +1,7 @@
-import type { WatchSessionState, WatchConnectivityModule, SyncRoundPayload } from "../../types/watch";
+import type { WatchSessionState, HakutoWatchModule, SyncRoundPayload } from "../../types/watch";
 
-describe("WatchConnectivityModule", () => {
-  let module: WatchConnectivityModule;
+describe("HakutoWatchModule", () => {
+  let module: HakutoWatchModule;
 
   beforeEach(() => {
     module = {

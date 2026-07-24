@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
-  s.name = "WatchConnectivity"
+  s.name = "HakutoWatchKit"
   s.version = "1.0.0"
-  s.summary = "WatchConnectivity wrapper module for Expo"
+  s.summary = "WatchConnectivity wrapper module for Hakuto"
   s.homepage = "https://github.com/pigeonworks-llc/hakuto"
   s.license = "MIT"
   s.author = "Pigeonworks LLC"
