@@ -4,7 +4,7 @@ import WatchConnectivity
 // WCSessionDelegate は NSObjectProtocol を継承するため、
 // NSObject を継承した別クラスとして実装する
 private class SessionDelegateImpl: NSObject, WCSessionDelegate {
-  var onMessage: ((String) -> Void)?
+  var onMessage: (([String: Any]) -> Void)?
   var onReachabilityChange: ((Bool) -> Void)?
 
   func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
@@ -16,10 +16,7 @@ private class SessionDelegateImpl: NSObject, WCSessionDelegate {
   }
 
   func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    guard let data = try? JSONSerialization.data(withJSONObject: message),
-          let jsonString = String(data: data, encoding: .utf8)
-    else { return }
-    onMessage?(jsonString)
+    onMessage?(message)
   }
 
   func sessionReachabilityDidChange(_ session: WCSession) {
@@ -55,8 +52,8 @@ public class HakutoWatchModule: Module {
     guard WCSession.isSupported() else { return }
     let session = WCSession.default
     session.delegate = sessionDelegate
-    sessionDelegate.onMessage = { [weak self] json in
-      self?.sendEvent("onMessage", json)
+    sessionDelegate.onMessage = { [weak self] message in
+      self?.sendEvent("onMessage", message)
     }
     sessionDelegate.onReachabilityChange = { [weak self] reachable in
       self?.sendEvent("onMessage", ["action": "reachabilityChanged", "isReachable": reachable])
