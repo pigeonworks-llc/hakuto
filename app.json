@@ -31,7 +31,19 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "スコアカードをスキャンして自動入力します"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "アルバムからスコアカード画像を読み込みます"
+        }
+      ]
     ]
   }
 }
