@@ -148,6 +148,17 @@ ok "IPA: $IPA_PATH ($(du -h "$IPA_PATH" | cut -f1))"
 	exit 0
 }
 
+# --- 起動クラッシュ smoke (upload の前に fail-fast) ---
+# 2026-07-24 app/ test-file の起動即クラッシュの反省。sim に Release build を
+# install→launch しプロセス生存を確認、crash なら upload を中止する。
+# SKIP_LAUNCH_SMOKE=1 で明示 skip 可 (sim 不在 / 高速 iteration 時)。
+if [[ "${SKIP_LAUNCH_SMOKE:-0}" -eq 1 ]]; then
+	echo "⚠ launch smoke を SKIP_LAUNCH_SMOKE=1 で省略 — 起動クラッシュ検出なしで upload" >&2
+else
+	bash "$REPO_ROOT/scripts/launch-smoke-ios.sh" ||
+		fail "launch smoke で起動クラッシュ検出 — upload 中止 (SKIP_LAUNCH_SMOKE=1 で明示省略可)"
+fi
+
 # --- TestFlight upload ---
 step "fastlane upload"
 (cd ios && FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 \
