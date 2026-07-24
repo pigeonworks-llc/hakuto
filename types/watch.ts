@@ -35,7 +35,7 @@ export interface SyncRoundPayload {
 }
 
 /** WCSession ネイティブモジュール interface (Events API) */
-export interface WatchConnectivityModule {
+export interface HakutoWatchModule {
   /** 現在のセッション状態を取得 */
   getSessionState(): Promise<WatchSessionState>;
   /** Watch にメッセージを送信 */

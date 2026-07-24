@@ -1,16 +1,15 @@
 import { Platform } from "react-native";
 import type { EventSubscription } from "expo-modules-core";
 import type {
-  WatchConnectivityModule,
+  HakutoWatchModule,
   WatchSessionState,
-  WatchRoundData,
   WatchCommand,
   SyncRoundPayload,
 } from "../../types/watch";
 
-const MODULE_NAME = "WatchConnectivity";
+const MODULE_NAME = "HakutoWatchKit";
 
-function getNativeModule(): WatchConnectivityModule | null {
+function getNativeModule(): HakutoWatchModule | null {
   if (Platform.OS !== "ios") return null;
   try {
     const ExpoModules = require("expo-modules-core");
@@ -40,7 +39,7 @@ export async function sendWatchMessage(
 
 /** Events API: Watch からのメッセージ購読 */
 export function onWatchMessage(
-  handler: (data: WatchRoundData | SyncRoundPayload) => void,
+  handler: (data: Record<string, unknown>) => void,
 ): EventSubscription {
   const ExpoModules = require("expo-modules-core");
   return ExpoModules.EventEmitter(getNativeModule()).addListener(
