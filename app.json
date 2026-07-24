@@ -4,12 +4,17 @@
     "slug": "hakuto",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "hakuto",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.pigeonworks.hakuto",
+      "buildNumber": "1",
+      "appleTeamId": "8FT9UF5MA6",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "スコアカードをスキャンして自動入力します",
         "NSPhotoLibraryUsageDescription": "アルバムからスコアカード画像を読み込みます"
@@ -17,9 +22,10 @@
     },
     "android": {
       "package": "com.pigeonworks.hakuto",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#3a5a40",
-        "foregroundImage": "./assets/images/adaptive-icon.png"
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
         "android.permission.CAMERA"

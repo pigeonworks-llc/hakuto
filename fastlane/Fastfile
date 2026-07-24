@@ -1,0 +1,49 @@
+default_platform(:ios)
+
+KEY_ID = "RS5PZU2T2S"
+ISSUER_ID = "88eb0dab-20b4-4091-b284-d458c90a960d"
+P8 = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_RS5PZU2T2S.p8")
+BUNDLE_ID = "com.pigeonworks.hakuto"
+TEAM_ID = "8FT9UF5MA6"
+MATCH_GIT_URL = "[REDACTED:pii:email_generic]:pigeonworks-llc/hakuto-match.git"
+MATCH_GIT_BRANCH = "master"
+
+def asc_key
+  app_store_connect_api_key(
+    key_id: KEY_ID, issuer_id: ISSUER_ID, key_filepath: P8, in_house: false
+  )
+end
+
+platform :ios do
+  desc "Provision signing via match"
+  lane :signing do
+    setup_ci(force: true) if ENV["HAKUTO_HEADLESS_SIGN"] == "1"
+    match(
+      type: "appstore",
+      git_url: MATCH_GIT_URL,
+      git_branch: MATCH_GIT_BRANCH,
+      storage_mode: "git",
+      api_key: asc_key,
+      app_identifier: [BUNDLE_ID],
+      readonly: ENV["MATCH_READONLY"] == "1"
+    )
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "hakuto.xcodeproj",
+      team_id: TEAM_ID,
+      code_sign_identity: "Apple Distribution",
+      targets: ["hakuto"],
+      profile_name: "match AppStore #{BUNDLE_ID}"
+    )
+  end
+
+  desc "Upload IPA to TestFlight"
+  lane :upload do |options|
+    upload_to_testflight(
+      ipa: options[:ipa],
+      api_key: asc_key,
+      skip_waiting_for_build_processing: false,
+      distribute_external: false
+    )
+  end
+end
