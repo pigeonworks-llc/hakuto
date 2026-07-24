@@ -17,6 +17,7 @@ ISSUER_ID="88eb0dab-20b4-4091-b284-d458c90a960d"
 P8_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
 TEAM_ID="8FT9UF5MA6"
 BUNDLE_ID="com.pigeonworks.hakuto"
+WATCH_BUNDLE_ID="com.pigeonworks.hakuto.watch"
 # Expo prebuild は expo.name ("Hakuto") で scheme/project/target を生成する。
 # slug ("hakuto") ではない。scheme/target 名は xcodebuild で case-sensitive。
 SCHEME="Hakuto"
@@ -96,6 +97,10 @@ fi
 mkdir -p ios/fastlane
 cp fastlane/Fastfile ios/fastlane/Fastfile
 
+# --- configure watch target (prebuild 後に実行) ---
+step "configure watch target"
+bash scripts/configure-watch-target.sh
+
 # --- signing ---
 step "fastlane signing (match)"
 SOPS_APPLE="$HOME/.config/secrets/eatreel-apple.sops.env"
@@ -133,6 +138,7 @@ cat >"$EXPORT_PLIST" <<PLIST
   <key>provisioningProfiles</key>
   <dict>
     <key>${BUNDLE_ID}</key><string>match AppStore ${BUNDLE_ID}</string>
+    <key>${WATCH_BUNDLE_ID}</key><string>match AppStore ${WATCH_BUNDLE_ID}</string>
   </dict>
 </dict>
 </plist>

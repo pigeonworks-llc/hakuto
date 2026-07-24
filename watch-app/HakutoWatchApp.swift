@@ -1,27 +1,63 @@
 import SwiftUI
+import SwiftData
 import WatchConnectivity
 
-@main
-struct HakutoWatchApp: App {
-  @StateObject private var sessionManager = WatchSessionManager()
+// MARK: - SwiftData Model
 
-  var body: some Scene {
-    WindowGroup {
-      ContentView()
-        .environmentObject(sessionManager)
-    }
+@Model
+class RoundRecord {
+  var id: String
+  var place: String?
+  var playedAt: Date
+  var scores: [Int]
+  var totalStrokes: Int
+  var synced: Bool
+
+  init(id: String, place: String?, playedAt: Date, scores: [Int], totalStrokes: Int, synced: Bool = false) {
+    self.id = id
+    self.place = place
+    self.playedAt = playedAt
+    self.scores = scores
+    self.totalStrokes = totalStrokes
+    self.synced = synced
+  }
+
+  var holeInOneCount: Int { scores.filter { $0 == 1 }.count }
+
+  static func calculateTotalStrokes(_ scores: [Int]) -> Int {
+    let raw = scores.reduce(0, +)
+    let hio = scores.filter { $0 == 1 }.count
+    return raw - 3 * hio
   }
 }
 
-// MARK: - Session Manager
+// MARK: - Watch App Entry
 
-class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
+@main
+struct HakutoWatchApp: App {
+  @StateObject private var watchManager = WatchManager()
+
+  var body: some Scene {
+    WindowGroup {
+      RootView()
+        .environmentObject(watchManager)
+    }
+    .modelContainer(for: RoundRecord.self)
+  }
+}
+
+// MARK: - WatchManager (Connectivity + State)
+
+class WatchManager: NSObject, ObservableObject, WCSessionDelegate {
   @Published var isReachable = false
-  @Published var courseName = ""
-  @Published var holeCount = 8
-  @Published var scores: [Int] = []
-  @Published var currentHole = 1
-  @Published var isPlaying = false
+  @Published var route: AppRoute = .home
+
+  enum AppRoute {
+    case home
+    case playing
+    case history
+    case placeInput(holeCount: Int)
+  }
 
   override init() {
     super.init()
@@ -46,31 +82,195 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
   }
 
   func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    DispatchQueue.main.async {
-      guard let action = message["action"] as? String else { return }
-      switch action {
-      case "startRound":
-        self.courseName = message["courseName"] as? String ?? ""
-        self.holeCount = message["holeCount"] as? Int ?? 8
-        self.scores = Array(repeating: 0, count: self.holeCount)
-        self.currentHole = 1
-        self.isPlaying = true
+    // Phone → Watch command handling (future: remote start etc.)
+  }
+}
 
-      case "endRound":
-        self.isPlaying = false
+// MARK: - Root View
 
-      case "updateScores":
-        if let newScores = message["scores"] as? [Int] {
-          self.scores = newScores
+struct RootView: View {
+  @EnvironmentObject var watchManager: WatchManager
+
+  var body: some View {
+    switch watchManager.route {
+    case .home:
+      HomeView()
+    case .playing:
+      PlayingView()
+    case .history:
+      HistoryView()
+    case .placeInput(let holeCount):
+      PlaceInputView(holeCount: holeCount)
+    }
+  }
+}
+
+// MARK: - Home View
+
+struct HomeView: View {
+  @EnvironmentObject var watchManager: WatchManager
+  @Environment(\.modelContext) private var modelContext
+  @Query(sort: \RoundRecord.playedAt, order: .reverse) private var rounds: [RoundRecord]
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 12) {
+        // Header
+        VStack(spacing: 4) {
+          Text("Hakuto")
+            .font(.headline)
+            .foregroundColor(.green)
+          Text("グラウンドゴルフ")
+            .font(.caption2)
+            .foregroundColor(.secondary)
+        }
+        .padding(.top, 8)
+
+        // Quick start: 8H
+        Button(action: {
+          watchManager.route = .placeInput(holeCount: 8)
+        }) {
+          Label("8H 開始", systemImage: "figure.walk")
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.green)
+
+        // Quick start: 16H
+        Button(action: {
+          watchManager.route = .placeInput(holeCount: 16)
+        }) {
+          Label("16H 開始", systemImage: "figure.walk")
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .tint(.green)
+
+        // History button
+        if !rounds.isEmpty {
+          Button(action: {
+            watchManager.route = .history
+          }) {
+            Label("履歴 (\(rounds.count))", systemImage: "list.bullet")
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 6)
+          }
+          .buttonStyle(.bordered)
+          .tint(.blue)
+
+          // Recent round preview
+          if let latest = rounds.first {
+            VStack(alignment: .leading, spacing: 4) {
+              Text("前回").font(.caption2).foregroundColor(.secondary)
+              HStack {
+                Text(formatDate(latest.playedAt))
+                  .font(.caption2)
+                Spacer()
+                Text("\(latest.totalStrokes) 打")
+                  .font(.caption2)
+                  .foregroundColor(.green)
+              }
+              if let place = latest.place, !place.isEmpty {
+                Text(place)
+                  .font(.caption2)
+                  .foregroundColor(.secondary)
+              }
+            }
+            .padding(8)
+            .background(Color.gray.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+          }
         }
 
-      default:
-        break
+        // Connectivity indicator
+        HStack(spacing: 4) {
+          Circle()
+            .fill(watchManager.isReachable ? Color.green : Color.gray)
+            .frame(width: 6, height: 6)
+          Text(watchManager.isReachable ? "Phone 接続中" : "Phone 未接続")
+            .font(.caption2)
+            .foregroundColor(.secondary)
+        }
+        .padding(.top, 4)
       }
+      .padding(8)
     }
   }
 
-  // MARK: Actions
+  private func formatDate(_ date: Date) -> String {
+    let f = DateFormatter()
+    f.dateStyle = .short
+    f.timeStyle = .none
+    return f.string(from: date)
+  }
+}
+
+// MARK: - Place Input View (Standalone Start)
+
+struct PlaceInputView: View {
+  @EnvironmentObject var watchManager: WatchManager
+  let holeCount: Int
+  @State private var placeText = ""
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 12) {
+        Text("\(holeCount)H 開始")
+          .font(.headline)
+
+        TextField("場所（任意）", text: $placeText)
+          .textFieldStyle(.roundedBorder)
+          .font(.body)
+
+        Button(action: startRound) {
+          Text("スタート")
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.green)
+
+        Button(action: { watchManager.route = .home }) {
+          Text("戻る")
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.bordered)
+      }
+      .padding(8)
+    }
+  }
+
+  private func startRound() {
+    let mgr = RoundSessionManager.shared
+    mgr.startRound(
+      place: placeText.isEmpty ? nil : placeText,
+      holeCount: holeCount
+    )
+    watchManager.route = .playing
+  }
+}
+
+// MARK: - Round Session Manager (Transient state for current round)
+
+class RoundSessionManager: ObservableObject {
+  static let shared = RoundSessionManager()
+
+  @Published var place: String? = nil
+  @Published var holeCount = 8
+  @Published var scores: [Int] = []
+  @Published var currentHole = 1
+  @Published var isPlaying = false
+
+  func startRound(place: String?, holeCount: Int) {
+    self.place = place
+    self.holeCount = holeCount
+    self.scores = Array(repeating: 0, count: holeCount)
+    self.currentHole = 1
+    self.isPlaying = true
+  }
 
   func setScore(_ strokes: Int) {
     guard isPlaying, currentHole <= holeCount else { return }
@@ -79,7 +279,6 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     if currentHole < holeCount {
       currentHole += 1
     }
-    sendScoresToPhone()
   }
 
   func nextHole() {
@@ -92,94 +291,43 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     currentHole -= 1
   }
 
-  func finishRound() {
+  func finishRound() -> RoundRecord? {
+    guard isPlaying else { return nil }
     isPlaying = false
-    sendScoresToPhone()
-  }
-
-  private func sendScoresToPhone() {
-    guard WCSession.default.isReachable else { return }
-    WCSession.default.sendMessage(
-      ["action": "roundData", "scores": scores, "currentHole": currentHole, "completed": !isPlaying],
-      replyHandler: nil
+    let playedScores = scores.filter { $0 > 0 }
+    let total = RoundRecord.calculateTotalStrokes(playedScores)
+    let record = RoundRecord(
+      id: UUID().uuidString,
+      place: place,
+      playedAt: Date(),
+      scores: playedScores,
+      totalStrokes: total
     )
+    return record
+  }
+
+  func cancelRound() {
+    isPlaying = false
   }
 }
 
-// MARK: - Content View
-
-struct ContentView: View {
-  @EnvironmentObject var session: WatchSessionManager
-
-  var body: some View {
-    if !session.isReachable {
-      DisconnectedView()
-    } else if session.isPlaying {
-      PlayingView()
-        .environmentObject(session)
-    } else {
-      HomeView()
-        .environmentObject(session)
-    }
-  }
-}
-
-// MARK: - Disconnected View
-
-struct DisconnectedView: View {
-  var body: some View {
-    VStack(spacing: 8) {
-      Image(systemName: "applewatch.slash")
-        .font(.title2)
-        .foregroundColor(.gray)
-      Text("iPhoneに接続できません")
-        .font(.caption2)
-        .multilineTextAlignment(.center)
-        .foregroundColor(.gray)
-    }
-  }
-}
-
-// MARK: - Home View
-
-struct HomeView: View {
-  @EnvironmentObject var session: WatchSessionManager
-
-  var body: some View {
-    ScrollView {
-      VStack(spacing: 12) {
-        Text("Hakuto")
-          .font(.headline)
-          .foregroundColor(.green)
-
-        Text("グラウンドゴルフ")
-          .font(.caption2)
-          .foregroundColor(.secondary)
-
-        if !session.courseName.isEmpty {
-          Text(session.courseName)
-            .font(.caption)
-            .foregroundColor(.secondary)
-        }
-      }
-      .padding(.top, 8)
-    }
-  }
-}
-
-// MARK: - Playing View (score input)
+// MARK: - Playing View (Score Input)
 
 struct PlayingView: View {
-  @EnvironmentObject var session: WatchSessionManager
+  @StateObject private var session = RoundSessionManager.shared
+  @EnvironmentObject var watchManager: WatchManager
+  @Environment(\.modelContext) private var modelContext
 
   var body: some View {
     ScrollView {
       VStack(spacing: 8) {
         // Header
         HStack {
-          Text(session.courseName.prefix(8))
-            .font(.caption2)
-            .lineLimit(1)
+          if let place = session.place, !place.isEmpty {
+            Text(place.prefix(8))
+              .font(.caption2)
+              .lineLimit(1)
+          }
           Spacer()
           Text("\(session.currentHole)/\(session.holeCount)")
             .font(.caption2)
@@ -196,7 +344,14 @@ struct PlayingView: View {
           .font(.caption2)
           .foregroundColor(.secondary)
 
-        // Score buttons
+        // HIO indicator
+        if session.scores.filter({ $0 == 1 }).count > 0 {
+          Text("HIO ×\(session.scores.filter({ $0 == 1 }).count) (-\(session.scores.filter({ $0 == 1 }).count * 3))")
+            .font(.caption2)
+            .foregroundColor(.orange)
+        }
+
+        // Score buttons 1-8
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
           ForEach([1, 2, 3, 4, 5, 6, 7, 8], id: \.self) { strokes in
             Button(action: { session.setScore(strokes) }) {
@@ -229,7 +384,7 @@ struct PlayingView: View {
 
           Spacer()
 
-          Button(action: session.finishRound) {
+          Button(action: finish) {
             Text("終了")
               .font(.caption)
               .foregroundColor(.white)
@@ -241,5 +396,242 @@ struct PlayingView: View {
       }
       .padding(8)
     }
+  }
+
+  private func finish() {
+    guard let record = session.finishRound() else { return }
+    // Save locally
+    modelContext.insert(record)
+    try? modelContext.save()
+    // Sync to Phone if reachable
+    if WCSession.default.isReachable {
+      sendToPhone(record)
+    }
+    watchManager.route = .home
+  }
+
+  private func sendToPhone(_ record: RoundRecord) {
+    let payload: [String: Any] = [
+      "action": "syncRound",
+      "id": record.id,
+      "place": record.place ?? NSNull(),
+      "playedAt": ISO8601DateFormatter().string(from: record.playedAt),
+      "scores": record.scores,
+      "totalStrokes": record.totalStrokes,
+    ]
+    WCSession.default.sendMessage(payload, replyHandler: nil) { error in
+      // Mark as synced after successful send
+      if (error as NSError?) == nil {
+        DispatchQueue.main.async {
+          record.synced = true
+          try? modelContext.save()
+        }
+      }
+    }
+  }
+}
+
+// MARK: - History View
+
+struct HistoryView: View {
+  @EnvironmentObject var watchManager: WatchManager
+  @Environment(\.modelContext) private var modelContext
+  @Query(sort: \RoundRecord.playedAt, order: .reverse) private var rounds: [RoundRecord]
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 8) {
+        // Header
+        HStack {
+          Text("履歴")
+            .font(.headline)
+          Spacer()
+          Text("\(rounds.count) ラウンド")
+            .font(.caption2)
+            .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+
+        if rounds.isEmpty {
+          VStack(spacing: 8) {
+            Image(systemName: "tray")
+              .font(.title2)
+              .foregroundColor(.gray)
+            Text("まだラウンドがありません")
+              .font(.caption2)
+              .foregroundColor(.gray)
+          }
+          .padding(.top, 40)
+        }
+
+        ForEach(rounds) { round in
+          NavigationLink(destination: HistoryDetailView(round: round)) {
+            HistoryRow(round: round)
+          }
+          .buttonStyle(.plain)
+        }
+      }
+      .padding(8)
+    }
+
+    Button(action: { watchManager.route = .home }) {
+      Text("戻る")
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
+    .buttonStyle(.bordered)
+    .padding(.horizontal, 8)
+  }
+}
+
+// MARK: - History Row
+
+struct HistoryRow: View {
+  let round: RoundRecord
+
+  var body: some View {
+    HStack {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(formatDate(round.playedAt))
+          .font(.caption)
+          .foregroundColor(.primary)
+        if let place = round.place, !place.isEmpty {
+          Text(place)
+            .font(.caption2)
+            .foregroundColor(.secondary)
+        } else {
+          Text("場所未登録")
+            .font(.caption2)
+            .foregroundColor(.secondary)
+        }
+      }
+      Spacer()
+      VStack(alignment: .trailing, spacing: 2) {
+        Text("\(round.totalStrokes)")
+          .font(.headline)
+          .foregroundColor(.green)
+        Text("打")
+          .font(.caption2)
+          .foregroundColor(.secondary)
+      }
+    }
+    .padding(8)
+    .background(Color.gray.opacity(0.1))
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+
+  private func formatDate(_ date: Date) -> String {
+    let f = DateFormatter()
+    f.dateStyle = .short
+    f.timeStyle = .short
+    return f.string(from: date)
+  }
+}
+
+// MARK: - History Detail View
+
+struct HistoryDetailView: View {
+  let round: RoundRecord
+  @Environment(\.modelContext) private var modelContext
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 12) {
+        // Summary
+        VStack(spacing: 4) {
+          Text("\(round.totalStrokes) 打")
+            .font(.system(size: 40, weight: .bold))
+            .foregroundColor(.green)
+
+          if round.holeInOneCount > 0 {
+            Text("HIO \(round.holeInOneCount)回 (-\(round.holeInOneCount * 3))")
+              .font(.caption)
+              .foregroundColor(.orange)
+          }
+
+          Text(formatDateTime(round.playedAt))
+            .font(.caption2)
+            .foregroundColor(.secondary)
+
+          if let place = round.place, !place.isEmpty {
+            Text(place)
+              .font(.caption2)
+              .foregroundColor(.secondary)
+          }
+
+          if round.synced {
+            Label("Phone 同期済", systemImage: "checkmark.circle.fill")
+              .font(.caption2)
+              .foregroundColor(.blue)
+          } else {
+            Label("未同期", systemImage: "clock")
+              .font(.caption2)
+              .foregroundColor(.orange)
+          }
+        }
+        .padding(.top, 8)
+
+        // Hole by hole scores
+        Text("ホール別スコア")
+          .font(.subheadline)
+          .frame(maxWidth: .infinity, alignment: .leading)
+
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 4) {
+          ForEach(Array(round.scores.enumerated()), id: \.offset) { index, score in
+            VStack(spacing: 2) {
+              Text("H\(index + 1)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+              Text("\(score)")
+                .font(.body)
+                .fontWeight(score == 1 ? .bold : .regular)
+                .foregroundColor(score == 1 ? .orange : .primary)
+            }
+            .padding(4)
+            .background(score == 1 ? Color.orange.opacity(0.15) : Color.gray.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+          }
+        }
+
+        // Sync button (if not synced and reachable)
+        if !round.synced && WCSession.default.isReachable {
+          Button(action: syncToPhone) {
+            Label("Phone に同期", systemImage: "arrow.triangle.2.circlepath")
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 6)
+          }
+          .buttonStyle(.borderedProminent)
+          .tint(.blue)
+        }
+      }
+      .padding(8)
+    }
+  }
+
+  private func syncToPhone() {
+    let payload: [String: Any] = [
+      "action": "syncRound",
+      "id": round.id,
+      "place": round.place ?? NSNull(),
+      "playedAt": ISO8601DateFormatter().string(from: round.playedAt),
+      "scores": round.scores,
+      "totalStrokes": round.totalStrokes,
+    ]
+    WCSession.default.sendMessage(payload, replyHandler: nil) { error in
+      if error == nil {
+        DispatchQueue.main.async {
+          round.synced = true
+          try? modelContext.save()
+        }
+      }
+    }
+  }
+
+  private func formatDateTime(_ date: Date) -> String {
+    let f = DateFormatter()
+    f.dateStyle = .short
+    f.timeStyle = .short
+    return f.string(from: date)
   }
 }

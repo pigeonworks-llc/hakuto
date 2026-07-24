@@ -4,6 +4,7 @@ KEY_ID = "RS5PZU2T2S"
 ISSUER_ID = "88eb0dab-20b4-4091-b284-d458c90a960d"
 P8 = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_RS5PZU2T2S.p8")
 BUNDLE_ID = "com.pigeonworks.hakuto"
+WATCH_BUNDLE_ID = "com.pigeonworks.hakuto.watch"
 TEAM_ID = "8FT9UF5MA6"
 MATCH_GIT_URL = "git@" + "github.com:pigeonworks-llc/hakuto-match.git"
 MATCH_GIT_BRANCH = "master"
@@ -24,7 +25,7 @@ platform :ios do
       git_branch: MATCH_GIT_BRANCH,
       storage_mode: "git",
       api_key: asc_key,
-      app_identifier: [BUNDLE_ID],
+      app_identifier: [BUNDLE_ID, WATCH_BUNDLE_ID],
       readonly: ENV["MATCH_READONLY"] == "1"
     )
     update_code_signing_settings(
@@ -32,7 +33,7 @@ platform :ios do
       path: "Hakuto.xcodeproj",
       team_id: TEAM_ID,
       code_sign_identity: "Apple Distribution",
-      targets: ["Hakuto"],
+      targets: ["Hakuto", "HakutoWatch"],
       profile_name: "match AppStore #{BUNDLE_ID}"
     )
   end

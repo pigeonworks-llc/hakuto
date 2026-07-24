@@ -2,8 +2,6 @@ import ExpoModulesCore
 import WatchConnectivity
 
 public class WatchConnectivityModule: Module, WCSessionDelegate {
-  private var messageHandler: ((String) -> Void)?
-
   public func definition() -> ModuleDefinition {
     Name("WatchConnectivity")
 
@@ -17,14 +15,8 @@ public class WatchConnectivityModule: Module, WCSessionDelegate {
       try self.sendToWatch(message)
     }
 
-    Function("onMessage") { [weak self] (handler: @escaping (String) -> Void) in
-      guard let self = self else { return }
-      self.messageHandler = handler
-    }
-
-    Function("removeMessageHandler") { [weak self] in
-      self?.messageHandler = nil
-    }
+    // Events API: receive messages from Watch
+    Events("onMessage")
 
     OnStartObserving {
       activateSession()
@@ -77,15 +69,13 @@ public class WatchConnectivityModule: Module, WCSessionDelegate {
   }
 
   public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    guard let handler = messageHandler else { return }
-    if let data = try? JSONSerialization.data(withJSONObject: message),
-       let jsonString = String(data: data, encoding: .utf8) {
-      handler(jsonString)
-    }
+    var eventBody: [String: Any] = message
+    // Forward raw message data to JS via Events API
+    sendEvent("onMessage", eventBody)
   }
 
   public func sessionReachabilityDidChange(_ session: WCSession) {
-    // Notify listeners — future: event emitter
+    sendEvent("onMessage", ["action": "reachabilityChanged", "isReachable": session.isReachable])
   }
 }
 

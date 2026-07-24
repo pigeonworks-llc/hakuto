@@ -7,30 +7,38 @@ export interface WatchSessionState {
 
 /** Watch から iOS に送信されるラウンドデータ */
 export interface WatchRoundData {
-  courseName: string;
+  place: string | null;
   holeCount: number;
   scores: number[];
   currentHole: number;
+  totalStrokes: number;
   timestamp: number;
 }
 
 /** iOS から Watch へのコマンド */
 export interface WatchCommand {
   action: "startRound" | "endRound" | "updateScores";
-  courseName?: string;
+  place?: string;
   holeCount?: number;
   roundId?: string;
   scores?: number[];
 }
 
-/** WCSession ネイティブモジュール interface */
+/** Watch から Phone へ同期される完全なラウンド */
+export interface SyncRoundPayload {
+  action: "syncRound";
+  id: string;
+  place: string | null;
+  playedAt: string;
+  scores: number[];
+  totalStrokes: number;
+}
+
+/** WCSession ネイティブモジュール interface (Events API) */
 export interface WatchConnectivityModule {
   /** 現在のセッション状態を取得 */
   getSessionState(): Promise<WatchSessionState>;
   /** Watch にメッセージを送信 */
-  sendMessage(message: WatchCommand): Promise<void>;
-  /** Watch からのメッセージ受信ハンドラを登録 */
-  onMessage(handler: (data: WatchRoundData) => void): void;
-  /** ハンドラの購読解除 */
-  removeMessageHandler(): void;
+  sendMessage(message: WatchCommand | SyncRoundPayload): Promise<void>;
+  /** Events API: addListener / removeSubscription は Expo 自動生成 */
 }

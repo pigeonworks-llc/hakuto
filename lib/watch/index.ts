@@ -1,5 +1,12 @@
 import { Platform } from "react-native";
-import type { WatchConnectivityModule, WatchSessionState, WatchRoundData, WatchCommand } from "../../types/watch";
+import type { EventSubscription } from "expo-modules-core";
+import type {
+  WatchConnectivityModule,
+  WatchSessionState,
+  WatchRoundData,
+  WatchCommand,
+  SyncRoundPayload,
+} from "../../types/watch";
 
 const MODULE_NAME = "WatchConnectivity";
 
@@ -23,27 +30,23 @@ export async function getWatchSessionState(): Promise<WatchSessionState> {
 }
 
 /** Watch にメッセージを送信 */
-export async function sendWatchMessage(message: WatchCommand): Promise<void> {
+export async function sendWatchMessage(
+  message: WatchCommand | SyncRoundPayload,
+): Promise<void> {
   const module = getNativeModule();
   if (!module) throw new Error("Watch connectivity not available");
   await module.sendMessage(message);
 }
 
-/** Watch からのデータ受信ハンドラ */
-let messageHandler: ((data: WatchRoundData) => void) | null = null;
-
-export function onWatchMessage(handler: (data: WatchRoundData) => void): void {
-  const module = getNativeModule();
-  if (!module) throw new Error("Watch connectivity not available");
-  messageHandler = handler;
-  module.onMessage(handler);
-}
-
-export function removeWatchMessageHandler(): void {
-  const module = getNativeModule();
-  if (!module) return;
-  messageHandler = null;
-  module.removeMessageHandler();
+/** Events API: Watch からのメッセージ購読 */
+export function onWatchMessage(
+  handler: (data: WatchRoundData | SyncRoundPayload) => void,
+): EventSubscription {
+  const ExpoModules = require("expo-modules-core");
+  return ExpoModules.EventEmitter(getNativeModule()).addListener(
+    "onMessage",
+    handler,
+  );
 }
 
 /** Watch が利用可能か簡易チェック */
