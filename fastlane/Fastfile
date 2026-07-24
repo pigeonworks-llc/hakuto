@@ -36,9 +36,23 @@ platform :ios do
       targets: ["Hakuto"],
       profile_name: "match AppStore #{BUNDLE_ID}"
     )
+  end
+
+  desc "Provision signing for watch app"
+  lane :signing_watch do
+    match(
+      type: "appstore",
+      git_url: MATCH_GIT_URL,
+      git_branch: MATCH_GIT_BRANCH,
+      storage_mode: "git",
+      api_key: asc_key,
+      app_identifier: [WATCH_BUNDLE_ID],
+      readonly: ENV["MATCH_READONLY"] == "1",
+      platform: :watchos
+    )
     update_code_signing_settings(
       use_automatic_signing: false,
-      path: "Hakuto.xcodeproj",
+      path: "../watch-app/HakutoWatch.xcodeproj",
       team_id: TEAM_ID,
       code_sign_identity: "Apple Distribution",
       targets: ["HakutoWatch"],
