@@ -1,7 +1,35 @@
 import ExpoModulesCore
 import WatchConnectivity
 
-public class HakutoWatchModule: Module, WCSessionDelegate {
+// WCSessionDelegate は NSObjectProtocol を継承するため、
+// NSObject を継承した別クラスとして実装する
+private class SessionDelegateImpl: NSObject, WCSessionDelegate {
+  var onMessage: ((String) -> Void)?
+  var onReachabilityChange: ((Bool) -> Void)?
+
+  func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
+
+  func sessionDidBecomeInactive(_ session: WCSession) {}
+
+  func sessionDidDeactivate(_ session: WCSession) {
+    WCSession.default.activate()
+  }
+
+  func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    guard let data = try? JSONSerialization.data(withJSONObject: message),
+          let jsonString = String(data: data, encoding: .utf8)
+    else { return }
+    onMessage?(jsonString)
+  }
+
+  func sessionReachabilityDidChange(_ session: WCSession) {
+    onReachabilityChange?(session.isReachable)
+  }
+}
+
+public class HakutoWatchModule: Module {
+  private let sessionDelegate = SessionDelegateImpl()
+
   public func definition() -> ModuleDefinition {
     Name("HakutoWatchKit")
 
@@ -26,7 +54,13 @@ public class HakutoWatchModule: Module, WCSessionDelegate {
   private func activateSession() {
     guard WCSession.isSupported() else { return }
     let session = WCSession.default
-    session.delegate = self
+    session.delegate = sessionDelegate
+    sessionDelegate.onMessage = { [weak self] json in
+      self?.sendEvent("onMessage", json)
+    }
+    sessionDelegate.onReachabilityChange = { [weak self] reachable in
+      self?.sendEvent("onMessage", ["action": "reachabilityChanged", "isReachable": reachable])
+    }
     session.activate()
   }
 
@@ -56,24 +90,6 @@ public class HakutoWatchModule: Module, WCSessionDelegate {
     session.sendMessage(message, replyHandler: nil) { error in
       NSLog("HakutoWatchKit: send failed: %@", error.localizedDescription)
     }
-  }
-
-  // MARK: - WCSessionDelegate
-
-  public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
-
-  public func sessionDidBecomeInactive(_ session: WCSession) {}
-
-  public func sessionDidDeactivate(_ session: WCSession) {
-    WCSession.default.activate()
-  }
-
-  public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    sendEvent("onMessage", message)
-  }
-
-  public func sessionReachabilityDidChange(_ session: WCSession) {
-    sendEvent("onMessage", ["action": "reachabilityChanged", "isReachable": session.isReachable])
   }
 }
 
