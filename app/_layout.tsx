@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { SQLiteProvider } from "expo-sqlite";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { WatchSyncListener } from "../components/WatchSyncListener";
 
 export default function RootLayout() {
   return (
@@ -13,6 +14,7 @@ export default function RootLayout() {
         await db.execAsync("PRAGMA journal_mode = WAL;");
       }}>
         <StatusBar style="auto" />
+        <WatchSyncListener />
         <ErrorBoundary>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
