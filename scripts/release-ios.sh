@@ -99,6 +99,9 @@ fi
 mkdir -p ios/fastlane
 cp fastlane/Fastfile ios/fastlane/Fastfile
 
+# Apply patches (expo-modules-jsi Swift fix for Xcode 16)
+npx patch-package 2>/dev/null || true
+
 # --- configure watch target (prebuild 後に実行) ---
 step "configure watch target"
 bash scripts/configure-watch-target.sh
