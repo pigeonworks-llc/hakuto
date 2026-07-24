@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../components/ui/Button";
 import { RoundCard } from "../../components/RoundCard";
 import { COLORS } from "../../constants";
@@ -9,6 +9,19 @@ import type { Round } from "../../types";
 export default function HomeScreen() {
   const [recentRounds, setRecentRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
+  const [watchAvailable, setWatchAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    (async () => {
+      try {
+        const { isWatchAvailable } = await import("../../lib/watch");
+        setWatchAvailable(await isWatchAvailable());
+      } catch {
+        // Watch connectivity not available
+      }
+    })();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,6 +54,11 @@ export default function HomeScreen() {
         <Button variant="outline" onPress={() => router.push("/ocr/scan")}>
           スコアカードスキャン
         </Button>
+        {watchAvailable && (
+          <Button variant="outline" onPress={() => router.push("/round/new")}>
+            ⌚ Watchでラウンド
+          </Button>
+        )}
       </View>
 
       <View style={styles.section}>
