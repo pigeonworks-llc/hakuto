@@ -1,9 +1,9 @@
 import ExpoModulesCore
 import WatchConnectivity
 
-public class WatchConnectivityModule: Module, WCSessionDelegate {
+public class HakutoWatchModule: Module, WCSessionDelegate {
   public func definition() -> ModuleDefinition {
-    Name("WatchConnectivity")
+    Name("HakutoWatchKit")
 
     Function("getSessionState") { [weak self] in
       guard let self = self else { return [:] }
@@ -54,7 +54,7 @@ public class WatchConnectivityModule: Module, WCSessionDelegate {
       throw WatchError.watchNotReachable
     }
     session.sendMessage(message, replyHandler: nil) { error in
-      NSLog("WatchConnectivity: send failed: %@", error.localizedDescription)
+      NSLog("HakutoWatchKit: send failed: %@", error.localizedDescription)
     }
   }
 
@@ -69,9 +69,7 @@ public class WatchConnectivityModule: Module, WCSessionDelegate {
   }
 
   public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    var eventBody: [String: Any] = message
-    // Forward raw message data to JS via Events API
-    sendEvent("onMessage", eventBody)
+    sendEvent("onMessage", message)
   }
 
   public func sessionReachabilityDidChange(_ session: WCSession) {
