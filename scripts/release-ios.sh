@@ -17,9 +17,11 @@ ISSUER_ID="88eb0dab-20b4-4091-b284-d458c90a960d"
 P8_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
 TEAM_ID="8FT9UF5MA6"
 BUNDLE_ID="com.pigeonworks.hakuto"
-SCHEME="hakuto"
+# Expo prebuild は expo.name ("Hakuto") で scheme/project/target を生成する。
+# slug ("hakuto") ではない。scheme/target 名は xcodebuild で case-sensitive。
+SCHEME="Hakuto"
 
-ARCHIVE_PATH="$REPO_ROOT/ios/build/hakuto.xcarchive"
+ARCHIVE_PATH="$REPO_ROOT/ios/build/Hakuto.xcarchive"
 EXPORT_PATH="$REPO_ROOT/ios/build/export"
 EXPORT_PLIST="$REPO_ROOT/ios/build/export-options.plist"
 IPA_PATH="$EXPORT_PATH/${SCHEME}.ipa"
@@ -77,29 +79,12 @@ ok "team=$TEAM_ID bundle=$BUNDLE_ID"
 	exit 0
 }
 
-# --- version bump (ASC max buildNumber + 1) ---
-step "buildNumber derivation (ASC SoT)"
-APP_BUILD_NUMBER="$(node -e "
-const https = require('https');
-const p8 = require('fs').readFileSync('$P8_PATH', 'utf8');
-const token = (() => {
-  const jwt = require('jsonwebtoken');
-  return jwt.sign({ iss: '$ISSUER_ID', iat: Math.floor(Date.now()/1000), exp: Math.floor(Date.now()/1000)+300, aud: 'appstoreconnect-v1' }, p8, { algorithm: 'ES256', keyid: '$KEY_ID' });
-})();
-const req = https.get('https://api.appstoreconnect.apple.com/v1/builds?filter[app]=&limit=1&sort=-version', { headers: { Authorization: 'Bearer '+token } }, (res) => {
-  let d = '';
-  res.on('data', c => d += c);
-  res.on('end', () => {
-    const j = JSON.parse(d);
-    const max = Math.max(...(j.data||[]).map(b => parseInt(b.attributes.version, 10)), 0);
-    process.stdout.write(String(max+1));
-  });
-});
-req.on('error', e => { process.exit(1); });
-req.end();
-")" || fail "ASC buildNumber 取得失敗 (APP_BUILD_NUMBER=<n> を明示 export)"
-export APP_BUILD_NUMBER
-ok "buildNumber -> $APP_BUILD_NUMBER"
+# --- buildNumber ---
+# hakuto は静的 app.json (expo.ios.buildNumber) を SoT とする。次リリースは
+# app.json の buildNumber を手で +1 してから release する (bump 自動化は follow-up)。
+step "buildNumber (app.json SoT)"
+APP_BUILD_NUMBER="$(node -e "process.stdout.write(String(require('./app.json').expo.ios.buildNumber||'1'))")"
+ok "buildNumber -> $APP_BUILD_NUMBER (app.json)"
 
 # --- prebuild ---
 if [[ "$SKIP_PREBUILD" -eq 0 ]]; then
