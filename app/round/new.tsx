@@ -1,78 +1,56 @@
-import { useCallback, useState } from "react";
-import { router, useFocusEffect } from "expo-router";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { router } from "expo-router";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "../../components/ui/Button";
 import { ScoreInput } from "../../components/ScoreInput";
-import { COLORS } from "../../constants";
+import { COLORS, HOLE_COUNTS } from "../../constants";
 import { useRound } from "../../hooks/useRound";
-import type { Course } from "../../types";
 
 export default function NewRoundScreen() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [place, setPlace] = useState("");
+  const [holeCount, setHoleCount] = useState<number>(8);
   const { activeRound, startRound, setScore, nextHole, prevHole, saveRound, saving } = useRound();
 
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        setLoadingCourses(true);
-        try {
-          const { listCourses } = await import("../../db/repositories/course");
-          const { getDb } = await import("../../db/index");
-          const db = await getDb();
-          const all = await listCourses(db);
-          setCourses(all);
-          if (all.length > 0 && !selectedCourse) {
-            setSelectedCourse(all[0]);
-          }
-        } finally {
-          setLoadingCourses(false);
-        }
-      })();
-    }, [])
-  );
-
-  // コース選択
+  // コース/場所選択
   if (!activeRound) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         <Text style={styles.title}>新規ラウンド</Text>
 
-        {loadingCourses ? (
-          <Text style={styles.muted}>読み込み中...</Text>
-        ) : courses.length === 0 ? (
-          <View style={styles.emptySection}>
-            <Text style={styles.muted}>コースが登録されていません</Text>
-            <Button variant="outline" onPress={() => router.push("/(tabs)/courses")}>
-              コースを追加
-            </Button>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.label}>コースを選択</Text>
-            <View style={styles.courseList}>
-              {courses.map((c) => (
-                <Button
-                  key={c.id}
-                  variant={selectedCourse?.id === c.id ? "primary" : "ghost"}
-                  onPress={() => setSelectedCourse(c)}
-                >
-                  {c.name} ({c.holeCount}H)
-                </Button>
-              ))}
-            </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>場所（任意）</Text>
+          <TextInput
+            style={styles.input}
+            value={place}
+            onChangeText={setPlace}
+            placeholder="例: 河川敷公園"
+            placeholderTextColor={COLORS.textMuted}
+          />
+        </View>
 
-            {selectedCourse && (
-              <Button
-                variant="primary"
-                onPress={() => startRound(selectedCourse.id, selectedCourse.name, selectedCourse.holeCount)}
+        <View style={styles.field}>
+          <Text style={styles.label}>ホール数</Text>
+          <View style={styles.holeSelector}>
+            {HOLE_COUNTS.map((n) => (
+              <Pressable
+                key={n}
+                onPress={() => setHoleCount(n)}
+                style={[styles.holeBtn, holeCount === n && styles.holeBtnActive]}
               >
-                ラウンド開始
-              </Button>
-            )}
-          </>
-        )}
+                <Text style={[styles.holeBtnLabel, holeCount === n && styles.holeBtnLabelActive]}>
+                  {n}H
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <Button
+          variant="primary"
+          onPress={() => startRound(place.trim() || null, holeCount)}
+        >
+          ラウンド開始
+        </Button>
 
         <Button variant="ghost" onPress={() => router.back()}>
           戻る
@@ -95,7 +73,9 @@ export default function NewRoundScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{activeRound.courseName}</Text>
+      <Text style={styles.title}>
+        {activeRound.place ?? `ラウンド`}
+      </Text>
       <Text style={styles.holeIndicator}>
         {activeRound.currentHole} / {activeRound.holeCount} ホール
       </Text>
@@ -116,8 +96,13 @@ export default function NewRoundScreen() {
       </View>
 
       <Text style={styles.totalText}>
-        合計: {activeRound.scores.reduce((a: number, b: number) => a + b, 0)} 打
+        実打数: {activeRound.scores.reduce((a: number, b: number) => a + b, 0)} 打
       </Text>
+      {activeRound.scores.filter((s) => s === 1).length > 0 && (
+        <Text style={styles.hioText}>
+          ホールインワン: {activeRound.scores.filter((s) => s === 1).length} 回 (−3打)
+        </Text>
+      )}
     </ScrollView>
   );
 }
@@ -128,9 +113,29 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "800", color: COLORS.text, alignSelf: "flex-start" },
   label: { fontSize: 16, fontWeight: "600", color: COLORS.text, alignSelf: "flex-start" },
   holeIndicator: { fontSize: 18, fontWeight: "700", color: COLORS.accent },
-  courseList: { width: "100%", gap: 8 },
+  field: { width: "100%", gap: 8 },
+  input: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  holeSelector: { flexDirection: "row", gap: 12 },
+  holeBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  holeBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  holeBtnLabel: { fontSize: 16, fontWeight: "600", color: COLORS.text },
+  holeBtnLabelActive: { color: "#fff" },
   navRow: { flexDirection: "row", gap: 16, marginTop: 10 },
   totalText: { fontSize: 18, fontWeight: "700", color: COLORS.textSecondary },
-  muted: { fontSize: 14, color: COLORS.textMuted, textAlign: "center" },
-  emptySection: { alignItems: "center", gap: 12 },
+  hioText: { fontSize: 14, fontWeight: "600", color: COLORS.accent },
 });

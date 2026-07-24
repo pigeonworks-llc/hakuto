@@ -7,12 +7,27 @@ interface Props {
   onPress: (id: string) => void;
 }
 
+function formatPlayedAt(playedAt: string): string {
+  try {
+    const d = new Date(playedAt);
+    if (isNaN(d.getTime())) return playedAt;
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, "0");
+    const day = d.getDate().toString().padStart(2, "0");
+    const h = d.getHours().toString().padStart(2, "0");
+    const min = d.getMinutes().toString().padStart(2, "0");
+    return `${y}/${m}/${day} ${h}:${min}`;
+  } catch {
+    return playedAt;
+  }
+}
+
 export function RoundCard({ round, onPress }: Props) {
   return (
     <Pressable onPress={() => onPress(round.id)} style={styles.card}>
       <View style={styles.left}>
-        <Text style={styles.date}>{round.date}</Text>
-        <Text style={styles.course}>{round.courseName}</Text>
+        <Text style={styles.date}>{formatPlayedAt(round.playedAt)}</Text>
+        <Text style={styles.course}>{round.place ?? "場所不明"}</Text>
       </View>
       <View style={styles.right}>
         <Text style={styles.strokes}>{round.totalStrokes}</Text>

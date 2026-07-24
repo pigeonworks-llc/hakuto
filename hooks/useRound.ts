@@ -15,9 +15,8 @@ export function useRound() {
       const { getDb } = await import("../db/index");
       const db = await getDb();
       const id = await insertRound(db, {
-        courseId: data.courseId,
-        courseName: data.courseName,
-        date: new Date().toISOString().slice(0, 10),
+        place: data.place,
+        playedAt: new Date().toISOString(),
         scores: data.scores,
         source: "manual",
       });

@@ -1,18 +1,8 @@
-/** コース */
-export interface Course {
-  id: string;
-  name: string;
-  holeCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 /** ラウンド */
 export interface Round {
   id: string;
-  courseId: string;
-  courseName: string;
-  date: string;
+  place: string | null;
+  playedAt: string;
   totalStrokes: number;
   notes: string | null;
   source: "manual" | "watch" | "ocr";
@@ -29,9 +19,8 @@ export interface HoleScore {
 
 /** 新規ラウンド作成用入力 */
 export interface NewRoundInput {
-  courseId: string;
-  courseName: string;
-  date: string;
+  place: string | null;
+  playedAt: string;
   scores: number[];
   notes?: string;
   source?: "manual" | "watch" | "ocr";
@@ -48,13 +37,4 @@ export interface StatsSummary {
   averageStrokes: number;
   bestScore: number;
   recentAvgStrokes: number;
-}
-
-/** コース別統計 */
-export interface CourseStats {
-  courseId: string;
-  courseName: string;
-  rounds: number;
-  averageStrokes: number;
-  bestScore: number;
 }
