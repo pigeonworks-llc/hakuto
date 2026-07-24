@@ -1,4 +1,4 @@
-import type { WatchSessionState, WatchConnectivityModule } from "../../types/watch";
+import type { WatchSessionState, WatchConnectivityModule, SyncRoundPayload } from "../../types/watch";
 
 describe("WatchConnectivityModule", () => {
   let module: WatchConnectivityModule;
@@ -11,8 +11,6 @@ describe("WatchConnectivityModule", () => {
         activationState: "activated",
       }),
       sendMessage: async () => {},
-      onMessage: () => {},
-      removeMessageHandler: () => {},
     };
   });
 
@@ -22,12 +20,19 @@ describe("WatchConnectivityModule", () => {
     expect(state.activationState).toBe("activated");
   });
 
-  it("sendMessage がエラーなく実行される", async () => {
-    await expect(module.sendMessage({ action: "startRound", courseName: "A", holeCount: 8 })).resolves.toBeUndefined();
+  it("sendMessage が WatchCommand でエラーなく実行される", async () => {
+    await expect(module.sendMessage({ action: "startRound", place: "公園", holeCount: 8 })).resolves.toBeUndefined();
   });
 
-  it("onMessage がハンドラを登録できる", () => {
-    const handler = () => {};
-    expect(() => module.onMessage(handler)).not.toThrow();
+  it("sendMessage が SyncRoundPayload でエラーなく実行される", async () => {
+    const payload: SyncRoundPayload = {
+      action: "syncRound",
+      id: "abc",
+      place: null,
+      playedAt: "2026-07-24T10:00:00Z",
+      scores: [4, 3],
+      totalStrokes: 7,
+    };
+    await expect(module.sendMessage(payload)).resolves.toBeUndefined();
   });
 });

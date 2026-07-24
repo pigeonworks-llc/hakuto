@@ -17,7 +17,6 @@ export default function TabLayout() {
       <Tabs.Screen name="index" options={{ title: "ホーム", tabBarLabel: "ホーム" }} />
       <Tabs.Screen name="history" options={{ title: "履歴", tabBarLabel: "履歴" }} />
       <Tabs.Screen name="stats" options={{ title: "統計", tabBarLabel: "統計" }} />
-      <Tabs.Screen name="courses" options={{ title: "コース", tabBarLabel: "コース" }} />
     </Tabs>
   );
 }

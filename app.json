@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.pigeonworks.hakuto",
-      "buildNumber": "2",
+      "buildNumber": "4",
       "appleTeamId": "8FT9UF5MA6",
       "config": {
         "usesNonExemptEncryption": false

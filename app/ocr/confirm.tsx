@@ -16,12 +16,12 @@ export default function OcrConfirmScreen() {
   const {
     result,
     updateHoleScore,
-    updateCourseName,
     updateDate,
     clearResult,
   } = useOcr();
 
   const [saving, setSaving] = useState(false);
+  const [place, setPlace] = useState("");
 
   // Clear OCR data when navigating away
   useFocusEffect(
@@ -75,27 +75,12 @@ export default function OcrConfirmScreen() {
       const db = await getDb();
 
       const scores = result.holes.map((h) => h.strokes ?? 0);
-      const courseName = result.courseName ?? "OCR コース";
+      const placeValue = place.trim() || result.courseName || null;
       const date = result.date ?? new Date().toISOString().slice(0, 10);
 
-      // Find an existing course or use a placeholder
-      const { listCourses } = await import("../../db/repositories/course");
-      const courses = await listCourses(db);
-      let courseId = courses.find((c) => c.name === courseName)?.id;
-
-      if (!courseId) {
-        // Create a course for OCR imports
-        courseId = `ocr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        await db.runAsync(
-          "INSERT OR IGNORE INTO courses (id, name, hole_count) VALUES (?, ?, ?)",
-          [courseId, courseName, scores.length],
-        );
-      }
-
       await insertRound(db, {
-        courseId,
-        courseName,
-        date,
+        place: placeValue,
+        playedAt: date,
         scores,
         source: "ocr",
       });
@@ -113,14 +98,14 @@ export default function OcrConfirmScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>認識結果確認</Text>
 
-      {/* Course name */}
+      {/* Place */}
       <View style={styles.field}>
-        <Text style={styles.fieldLabel}>コース名</Text>
+        <Text style={styles.fieldLabel}>場所</Text>
         <TextInput
           style={styles.input}
-          value={result.courseName ?? ""}
-          onChangeText={updateCourseName}
-          placeholder="コース名を入力"
+          value={place || (result.courseName ?? "")}
+          onChangeText={(text) => setPlace(text)}
+          placeholder="例: 河川敷公園"
           placeholderTextColor={COLORS.textMuted}
         />
       </View>
@@ -150,7 +135,7 @@ export default function OcrConfirmScreen() {
       {/* Hole scores grid */}
       <View style={styles.scoresSection}>
         <Text style={styles.sectionTitle}>
-          スコア (合計: {totalStrokes})
+          スコア (実打数: {totalStrokes})
         </Text>
         <View style={styles.grid}>
           {result.holes.map((hole, index) => (

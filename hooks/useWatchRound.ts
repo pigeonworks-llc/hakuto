@@ -29,10 +29,10 @@ export function useWatchRound() {
   }, [refreshState]);
 
   const startWatchRound = useCallback(
-    async (courseName: string, holeCount: number) => {
+    async (place: string | null, holeCount: number) => {
       await sendWatchMessage({
         action: "startRound",
-        courseName,
+        place: place ?? undefined,
         holeCount,
       });
     },

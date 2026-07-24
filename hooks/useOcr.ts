@@ -37,7 +37,6 @@ export function useOcr() {
     scanImage,
     clearResult: store.clearResult,
     updateHoleScore: store.updateHoleScore,
-    updateCourseName: store.updateCourseName,
     updateDate: store.updateDate,
   };
 }
