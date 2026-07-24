@@ -12,7 +12,6 @@ interface OcrState {
   setError: (error: string) => void;
   clearResult: () => void;
   updateHoleScore: (holeIndex: number, strokes: number) => void;
-  updateCourseName: (name: string) => void;
   updateDate: (date: string) => void;
 }
 
@@ -48,12 +47,6 @@ export const useOcrStore = create<OcrState>((set, get) => ({
     const holes = [...result.holes];
     holes[holeIndex] = { ...holes[holeIndex], strokes };
     set({ result: { ...result, holes } });
-  },
-
-  updateCourseName: (name) => {
-    const result = get().result;
-    if (!result) return;
-    set({ result: { ...result, courseName: name } });
   },
 
   updateDate: (date) => {

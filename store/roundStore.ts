@@ -2,28 +2,26 @@ import { create } from "zustand";
 
 export interface RoundState {
   activeRound: {
-    courseId: string;
-    courseName: string;
+    place: string | null;
     holeCount: number;
     scores: number[];
     currentHole: number;
   } | null;
-  startRound: (courseId: string, courseName: string, holeCount: number) => void;
+  startRound: (place: string | null, holeCount: number) => void;
   setScore: (strokes: number) => void;
   nextHole: () => void;
   prevHole: () => void;
-  finishRound: () => { courseId: string; courseName: string; scores: number[] } | null;
+  finishRound: () => { place: string | null; scores: number[] } | null;
   cancelRound: () => void;
 }
 
 export const useRoundStore = create<RoundState>((set, get) => ({
   activeRound: null,
 
-  startRound: (courseId, courseName, holeCount) => {
+  startRound: (place, holeCount) => {
     set({
       activeRound: {
-        courseId,
-        courseName,
+        place,
         holeCount,
         scores: [],
         currentHole: 1,
@@ -55,8 +53,7 @@ export const useRoundStore = create<RoundState>((set, get) => ({
     const round = get().activeRound;
     if (!round) return null;
     const result = {
-      courseId: round.courseId,
-      courseName: round.courseName,
+      place: round.place,
       scores: round.scores,
     };
     set({ activeRound: null });
