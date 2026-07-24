@@ -62,11 +62,20 @@ ok "simulator $SIM = $UDID"
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b 2>/dev/null || true
 
-# --- simulator 用 Release build ---
+# --- simulator 用 Release build (with pre-bundle + SKIP_BUNDLING) ---
 step "xcodebuild build (simulator, Release)"
 SIM_DERIVED="$REPO_ROOT/ios/build/smoke-sim"
 rm -rf "$SIM_DERIVED"
-(cd ios && xcodebuild \
+# Pre-bundle JS to avoid Metro transformFile error
+SIM_BUNDLE_OUTPUT="$SIM_DERIVED/Build/Products/Release-iphonesimulator/${SCHEME}.app/main.jsbundle"
+mkdir -p "$(dirname "$SIM_BUNDLE_OUTPUT")"
+npx expo export:embed \
+	--platform ios \
+	--entry-file node_modules/expo-router/entry.js \
+	--bundle-output "$SIM_BUNDLE_OUTPUT" \
+	--assets-dest "$(dirname "$SIM_BUNDLE_OUTPUT")/assets" \
+	--dev false >/dev/null 2>&1 || true
+(cd ios && SKIP_BUNDLING=1 xcodebuild \
 	-workspace "${SCHEME}.xcworkspace" -scheme "$SCHEME" \
 	-configuration Release -sdk iphonesimulator \
 	-destination "id=$UDID" \
@@ -74,6 +83,10 @@ rm -rf "$SIM_DERIVED"
 	CODE_SIGNING_ALLOWED=NO build) >/dev/null
 APP="$(find "$SIM_DERIVED/Build/Products" -maxdepth 2 -name "${SCHEME}.app" -type d | head -1)"
 [[ -n "$APP" ]] || fail "sim .app not produced"
+# Inject pre-bundled JS into the built .app
+if [[ -f "$SIM_BUNDLE_OUTPUT" ]]; then
+	cp "$SIM_BUNDLE_OUTPUT" "$APP/main.jsbundle"
+fi
 ok "app: $APP"
 
 # --- install + launch ---
